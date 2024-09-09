@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Battleships Game</title>
+    <style>
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; /* Vertically align items in the middle */
+            height: 80vh; /* Full height of the viewport */
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat({{player_board|length}}, 1fr);
+            grid-gap: 0px;
+            width: 40vw; /* 40% of viewport width */
+            height: 40vw; /* Equal to width for a square grid */
+        }
+
+        .small-grid {
+            display: grid;
+            grid-template-columns: repeat({{player_board|length}}, 1fr);
+            grid-gap: 0px;
+            width: 25vw; /* 25% of viewport width */
+            height: 25vw; /* Equal to width for a square grid */
+        }
+
+        .small-div {
+            padding: 30px 50px 10px 10px;
+        }
+
+        .grid div, .small-grid div {
+            border: 1px solid #000;
+            height: 100%; /* Full height of the grid */
+        }
+
+        .grid div:hover, .small-grid div:hover {
+            background-color: #ddd;
+        }
+
+        #messageBox{
+            height: 10em; /* Adjust as needed */
+            overflow-y: auto; /* Enable vertical scrolling */
+            white-space: pre-line; /* Preserve line breaks */
+            line-height: 1em; /* Adjust as needed */
+        }
+
+
+
+</style>
+    <script>
+        //Get the board that is passed from the python flask code
+        let board = {{player_board|tojson}};
+
+        // Load the grid format once the page has loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPlayersShips();
+        }, false);
+
+
+        function sendAttack(x, y, url) {
+            /**
+            * do a GET request to the server with the x and y coordinates for our attack
+            */
+
+            fetch(url+'?x='+x+'&y='+y, {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => {
+                //Process the response
+                if (data['hit'] === true) {
+                    //Change the colour of the div to red if the attack was a hit
+                    let cell = document.getElementById('cell-' + x + '-' + y);
+                    cell.style.backgroundColor = 'red';
+
+                } else {
+                    //Change the colour of the div to blue if attack was a miss
+                    let cell = document.getElementById('cell-' + x + '-' + y);
+                    cell.style.backgroundColor = 'lightblue';
+                }
+
+                //process the AI turn coordinate tupple
+                if(data['AI_Turn']){
+                    let AI_x = data['AI_Turn'][0];
+                    let AI_y = data['AI_Turn'][1];
+                    var log_string = "AI attacked location ("+AI_x+","+AI_y+")";
+
+                    let cell = document.getElementById('small-cell-' + AI_x + '-' + AI_y);
+                    if (board[AI_y][AI_x] === null) {
+                        cell.style.backgroundColor = 'blue';
+                        log_string+= " and missed";
+                    } else {
+                        cell.style.backgroundColor = 'red';
+                        log_string+= " and hit";
+                    }
+                }
+
+                //Update the game log
+                document.getElementById('messageBox').innerHTML = log_string + "<br>" + document.getElementById('messageBox').innerHTML;
+
+                if (data['finished']){
+                    //Game is finished
+                    document.getElementById('messageBox').innerHTML = data['finished'].toString();
+                    alert(data['finished'].toString());
+                }
+            }
+            )
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        function loadPlayersShips() {
+            /**
+             * Loops through the board variable is the square is none then sets the cell in the small grid blue.
+             * If the cell has a ship name in it then set the cell to lightgrey.
+             * else set the cell to lightblue
+             */
+            for (let i = 0; i < board.length; i++) {
+                for (let j = 0; j < board[i].length; j++) {
+                    console.log(j, i)
+                    let cell = document.getElementById('small-cell-' + j + '-' + i);
+                    console.log(cell)
+                    if (board[i][j] === null) {
+                        cell.style.backgroundColor = 'lightblue';
+                    } else if (board[i][j] === 'hit') {
+                        cell.style.backgroundColor = 'red';
+                    } else {
+                        cell.style.backgroundColor = 'lightgrey';
+                    }
+                }
+            }
+
+        }
+
+    </script>
+</head>
+
+<body>
+    <h1>Battleships Game</h1>
+    <div class="container">
+        <div class="gameLog">
+            <h2 id="gameLog">Game Log:</h2>
+            <h2 id="messageBox">  </h2>
+        </div>
+        <div class="grid">
+            {% for i in range(player_board|length) %}
+                {% for j in range(player_board|length) %}
+                    <div id="cell-{{ j }}-{{ i }}" onclick="sendAttack({{ j }},{{ i }}, '/attack')"></div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        <div class="small-div">
+            <h2 class="PlayersLabel">Players Grid:</h2>
+            <div class="small-grid">
+                {% for i in range(player_board|length) %}
+                    {% for j in range(player_board|length) %}
+                        <div id="small-cell-{{ j }}-{{ i }}" ></div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
